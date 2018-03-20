@@ -1,0 +1,9 @@
+task buildclient(type: GradleBuild) {
+     buildFile = './client/build.gradle'
+     tasks = ['jar']
+}
+
+task buildhost(type: GradleBuild) {
+     buildFile = './host/build.gradle'
+     tasks = ['jar']
+}

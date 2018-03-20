@@ -1,0 +1,16 @@
+apply plugin: 'java'
+
+sourceSets {
+	main {
+		resources {
+			srcDirs = ["src/main/java"]
+			includes = ["**/*.fxml"]
+		}
+	}
+}
+
+jar {
+	manifest {
+		attributes	'Main-Class': 'csci2020u.asmt2.client.Main'
+	}
+}
