@@ -11,6 +11,6 @@ sourceSets {
 
 jar {
 	manifest {
-		attributes	'Main-Class': 'csci2020u.asmt2.client.Main'
+		attributes	'Main-Class': 'csci2020u.asmt2.client.FileShareClient'
 	}
 }
