@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -14,19 +14,21 @@ public class FileServer {
 
 	private ServerSocket serverSocket;
 	private File shareDir;
-	private CopyOnWriteArrayList<String> fileList;
+	private ConcurrentHashMap<String, File> fileList;
 
 
 	public FileServer(int port, String path) throws IOException {
 
 		serverSocket = new ServerSocket(port);
+		fileList = new ConcurrentHashMap<>();
 
 		try {
-			// Check that the specified directory path can be accessed
+			// Check that the specified directory path exists/can be accessed
 			shareDir = new File(path);
 		} catch (Exception e) {
 			// Default directory to share is "share/" in the application's dir
-			shareDir = new File("./share");
+			shareDir = new File("./share/");
+			shareDir.mkdir();
 		}
 	}
 
@@ -35,15 +37,15 @@ public class FileServer {
 	 */
 	public void hostFiles() throws IOException {
 
-		System.out.println("Loading file list..");
-
+		// Build list of files to share
+		System.out.println("Loading file list...");
 		buildFileList(shareDir);
 
+		// Start listening for client connections
 		System.out.println("Listening for requests...");
-
 		while (true) {
 			Socket clientSocket = serverSocket.accept();
-			Thread connThread = new Thread(new ClientConnectionHandler(clientSocket));
+			Thread connThread = new Thread(new ClientConnectionHandler(clientSocket, fileList));
 			connThread.start();
 		}
 	}
@@ -60,8 +62,6 @@ public class FileServer {
 	 */
 	private void buildFileList(File fileDir) throws IOException {
 
-		fileList = new CopyOnWriteArrayList<>();
-
 		// Check directory permissions and whether it exists or not
 		if (fileDir.exists() && fileDir.canRead()) {
 
@@ -73,7 +73,7 @@ public class FileServer {
 					buildFileList(file);
 				} else {
 					// File: Add to list
-					fileList.add(file.getName());
+					fileList.put(file.getName(), file);
 				}
 			}
 		}
@@ -100,7 +100,7 @@ public class FileServer {
 		}
 
 		try {
-			// Launch file-sharing server
+			// Launch file-sharing server and start sharing files
 			FileServer fileServer = new FileServer(port, hostShareDir);
 			fileServer.hostFiles();
 		} catch (IOException e) {

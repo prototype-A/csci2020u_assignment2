@@ -2,6 +2,7 @@
 
 <?import fxmltableview.*?>
 <?import java.net.URL?>
+<?import javafx.scene.control.cell.PropertyValueFactory?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.SplitPane?>
 <?import javafx.scene.control.TableColumn?>
@@ -16,9 +17,9 @@
 	<top>
 		<HBox>
 
-			<Button text="Download" onAction="#downloadFile"/>
+			<Button fx:id="downloadButton" text="Download" onAction="#downloadFile"/>
 
-			<Button text="Upload" onAction="#uploadFile"/>
+			<Button fx:id="uploadButton" text="Upload" onAction="#uploadFile"/>
 
 		</HBox>
 	</top>
@@ -29,16 +30,16 @@
 		<SplitPane dividerPositions="0.5">
 			<items>
 
-				<TableView fx:id="clientFileList">
+				<TableView fx:id="clientFileListTable">
 					<columns>
-						<TableColumn text="File" prefWidth="400">
+						<TableColumn fx:id="clientFileNameCol" text="File Name" prefWidth="400">
 						</TableColumn>
 					</columns>
 				</TableView>
 
-				<TableView fx:id="serverFileList">
+				<TableView fx:id="serverFileListTable">
 					<columns>
-						<TableColumn text="File" prefWidth="400">
+						<TableColumn fx:id="serverFileNameCol" text="File Name" prefWidth="400">
 						</TableColumn>
 					</columns>
 				</TableView>
