@@ -40,9 +40,10 @@ public class FileServer {
 		// Build list of files to share
 		System.out.println("Loading file list...");
 		buildFileList(shareDir);
+		System.out.println("Loaded file list!\n");
 
 		// Start listening for client connections
-		System.out.println("Listening for requests...");
+		System.out.println("Listening for requests...\n");
 		while (true) {
 			Socket clientSocket = serverSocket.accept();
 			Thread connThread = new Thread(new ClientConnectionHandler(clientSocket, fileList));
@@ -101,6 +102,7 @@ public class FileServer {
 
 		try {
 			// Launch file-sharing server and start sharing files
+			System.out.println("Launching File Host...\n");
 			FileServer fileServer = new FileServer(port, hostShareDir);
 			fileServer.hostFiles();
 		} catch (IOException e) {

@@ -1,9 +1,11 @@
 package csci2020u.asmt2.filehost;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
@@ -21,35 +23,38 @@ public class ClientConnectionHandler implements Runnable {
 	private Socket clientSocket;
 	private ConcurrentHashMap<String, File> fileList;
 	private BufferedReader requestInput;
-	private DataOutputStream responseOutput;
-	private ObjectOutputStream objectSender;
+	private BufferedInputStream fileInput;
+	private BufferedOutputStream fileOutput;
+	private ObjectOutputStream responseSender;
+	private final int FILE_BUFFER_SIZE = 4096;
 
 
 	public ClientConnectionHandler(Socket socket, ConcurrentHashMap<String, File> fileList) throws IOException {
 		clientSocket = socket;
 		this.fileList = fileList;
 		requestInput = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-		responseOutput = new DataOutputStream(socket.getOutputStream());
-		objectSender = new ObjectOutputStream(socket.getOutputStream());
+		fileInput = new BufferedInputStream(socket.getInputStream());
+		fileOutput = new BufferedOutputStream(socket.getOutputStream());
+		responseSender = new ObjectOutputStream(socket.getOutputStream());
 	}
 
 	@Override
 	public void run() {
 
 		System.out.println("Date: " + (new Date()));
-		System.out.println("Established connection with a client from" + clientSocket.getInetAddress().getCanonicalHostName() + ".\n");
+		System.out.println("Established connection with a client from " + clientSocket.getInetAddress().getCanonicalHostName() + ".\n");
 
 		try {
 			// Handle the request sent by the client
 			parseRequest(requestInput.readLine());
 
+			// Close the connection to the client after handling the request
 			clientSocket.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
 			try {
-				requestInput.close();
-				responseOutput.close();
+				// Maybe it will close now?
 				clientSocket.close();
 			} catch (IOException e) {
 				System.err.println("aaaaaaaaaaaaaaa");
@@ -64,7 +69,7 @@ public class ClientConnectionHandler implements Runnable {
 	 *
 	 * @param request The entire command line to parse
 	 *
-	 * @exception IOException if the command is missing arguments
+	 * @throws IOException if the command is missing arguments
 	 */
 	private void parseRequest(String request) {
 
@@ -76,13 +81,13 @@ public class ClientConnectionHandler implements Runnable {
 			System.out.println("Recieved " + command + " command.\n");
 
 			switch (command) {
-				case "DIR":			sendFileList();
+				case "DIR":			sendFileList(true);
 									break;
-				case "UPLOAD":		getFile(tokenizer.nextToken());
+				case "UPLOAD":		getFile(tokenizer.nextToken(), true);
 									break;
-				case "DOWNLOAD":	sendFile(tokenizer.nextToken());
+				case "DOWNLOAD":	sendFile(tokenizer.nextToken(), true);
 									break;
-				default:			//sendResponse("ERROR", "'" + command + "' method is invalid or unsupported.");
+				default:			sendResponse("ERROR", "'" + command + "' method is invalid or unsupported.");
 			}
 
 		} catch (NoSuchElementException e) {
@@ -92,34 +97,67 @@ public class ClientConnectionHandler implements Runnable {
 
 	/**
 	 * Sends the current list of files to the client
+	 *
+	 *
+	 * @param sendOk True - Send acknowledgement of command
+	 * False - Do not send acknowledgement
 	 */
-	private void sendFileList() {
+	private void sendFileList(boolean sendOk) {
 		
 		try {
-			// Send request confirmation
-			sendAcknowledgement();
+			if (sendOk) {
+				// Send request confirmation
+				sendAcknowledgement();
+			}
 
 			// Send the file list
-			objectSender.writeObject(fileList.keySet());
+			responseSender.writeObject(fileList.keySet());
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 
-	private void getFile(String fileName) {
+	/**
+	 * Download the specified file from client to host
+	 * and share it
+	 *
+	 *
+	 * @param fileName The name of the file to download
+	 * @param sendOk True - Send acknowledgement of command
+	 * False - Do not send acknowledgement
+ 	 */
+	private void getFile(String fileName, boolean sendOk) {
 
 		try {
 
 			// Check if host can create a and write to new file
-			File newFile = new File(fileName);
+			File newFile = new File("./share/" + fileName);
 
-			// Send request confirmation
-			sendAcknowledgement();
+			if (sendOk) {
+				// Send request confirmation
+				sendAcknowledgement();
+			}
 
-			ObjectInputStream objectIn = new ObjectInputStream(clientSocket.getInputStream());
-			File downloadedFile = (File)objectIn.readObject();
-			System.out.println("Downloaded file to: " + downloadedFile.getCanonicalPath());
+			// Obtain and write data to file
+			FileOutputStream fileOut = new FileOutputStream(newFile);
+			byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
+			int count;
+			while ((count = fileInput.read(fileByteBuffer)) > 0) {
+				fileOut.write(fileByteBuffer, 0, count);
+				if (count < FILE_BUFFER_SIZE) {
+					break;
+				}
+			}
+			System.out.println("Downloaded file to: " + newFile.getCanonicalPath());
 
+			// Add the new file to the file list
+			fileList.putIfAbsent(newFile.getName(), newFile);
+
+			// Send updated file list to client
+			sendFileList(false);
+
+			// Close the file writer
+			fileOut.close();
 		} catch (IOException e) {
 			sendResponse("ERROR", "Could not write to file");
 		} catch (Exception e) {
@@ -129,12 +167,14 @@ public class ClientConnectionHandler implements Runnable {
 
 
 	/**
-	 * Sends the requested file over the socket
+	 * Sends the requested file over the socket to the client
 	 *
 	 *
 	 * @param fileName The name of the requested file to send
+	 * @param sendOk True - Send acknowledgement of command
+	 * False - Do not send acknowledgement
 	 */
-	private void sendFile(String fileName) {
+	private void sendFile(String fileName, boolean sendOk) {
 
 		try {
 
@@ -145,17 +185,19 @@ public class ClientConnectionHandler implements Runnable {
 
 			InputStream fileIn = new FileInputStream(fileList.get(fileName));
 
-			// Send request confirmation
-			sendAcknowledgement();
+			if (sendOk) {
+				// Send request confirmation
+				sendAcknowledgement();
+			}
 
-			// Buffered file byte output
+			// Buffered file output in 4k buffers
 			byte[] fileByteBuffer = new byte[4096];
 			int count;
 			while ((count = fileIn.read(fileByteBuffer)) > 0) {
-				responseOutput.write(fileByteBuffer, 0, count);
+				fileOutput.write(fileByteBuffer, 0, count);
 			}
 
-			responseOutput.flush();
+			fileOutput.flush();
 		} catch (Exception e) {
 			// Something went wrong: send error
 			sendResponse("ERROR", e.getMessage());
@@ -176,12 +218,12 @@ public class ClientConnectionHandler implements Runnable {
 	 * @param message The message to send
 	 * @param description The description of the message
 	 *
-	 * @exception IOException if an error occurs while sending the response
+	 * @throws IOException if an error occurs while sending the response
 	 */
 	private void sendResponse(String message, String description) {
 		try {
-			objectSender.writeObject(new ServerResponse(message, description));
-			objectSender.flush();
+			responseSender.writeObject(new ServerResponse(message, description));
+			responseSender.flush();
 		} catch (IOException e) {
 			System.out.println("Failed to send response to client");
 		} catch (Exception e) {
