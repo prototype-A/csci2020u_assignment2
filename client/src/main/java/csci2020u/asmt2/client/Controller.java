@@ -13,15 +13,15 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TableColumn;
 import javafx.stage.DirectoryChooser;
 
-import java.io.BufferedReader;
+import java.io.BufferedInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -45,7 +45,6 @@ public class Controller {
 	private ObservableList<String> serverFileList;
 	private Socket socket;
 	private ObjectInputStream responseInput;
-	private ObjectOutputStream fileOutput;
 	private DataOutputStream requestOutput;
 	private final int FILE_BUFFER_SIZE = 4096;
 
@@ -63,8 +62,7 @@ public class Controller {
 			// Build the list of files to share
 			fileList = new HashMap<>();
 			buildFileList(clientShareDir);
-			// Display local shared files
-			clientFileListTable.setItems(FXCollections.observableArrayList(fileList.keySet()));
+			updateClientFileList();
 			clientFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
 
 			// Connect to file-sharing host
@@ -81,7 +79,6 @@ public class Controller {
 	/**
 	 * Recursively iterates through all files and subdirectories
 	 * and adds all files to a list
-	 *
 	 *
 	 * @param fileDir The directory to begin in
 	 */
@@ -104,6 +101,11 @@ public class Controller {
 		}
 	}
 
+	private void updateClientFileList() {
+		// Display local shared files
+		clientFileListTable.setItems(FXCollections.observableArrayList(fileList.keySet()));
+	}
+
 	/**
 	 * Establish connection and data stream I/O to the file-sharing host 
 	 */
@@ -116,7 +118,7 @@ public class Controller {
 			responseInput = new ObjectInputStream(socket.getInputStream());
 			requestOutput = new DataOutputStream(socket.getOutputStream());
 		} catch (ConnectException e) {
-			System.err.println("Connection refused");
+			System.err.println("Could not connect to file host");
 		} catch (UnknownHostException e) {
 			System.err.println("Unknown connection");
 			e.printStackTrace();
@@ -154,9 +156,9 @@ public class Controller {
 		switch (command) {
 			case "DIR":			receiveFileList();
 								break;
-			case "UPLOAD":		sendFile(fileName);
+			case "DOWNLOAD":	receiveFile(fileName);
 								break;
-			case "DOWNLOAD":	//receiveFile(fileName);
+			case "UPLOAD":		sendFile(fileName);
 								break;
 		}
 	}
@@ -179,6 +181,44 @@ public class Controller {
 	}
 
 	/**
+	 * Downloads the specified file from the file host
+	 *
+	 *
+	 * @param fileName The name of the file to download
+	 *
+	 * @throws IOException if an I/O error occurs while downloading file
+	 */
+	private void receiveFile(String fileName) throws IOException {
+
+		// Check if the client can create a and write to new file
+		File newFile = new File(clientShareDir.getAbsolutePath() + "/" + fileName);
+
+		// Open a buffered stream to receive file byte buffers
+		BufferedInputStream fileInput = new BufferedInputStream(socket.getInputStream());
+
+		// Download and write data to file
+		FileOutputStream fileOut = new FileOutputStream(newFile);
+		byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
+		int count;
+		while ((count = fileInput.read(fileByteBuffer)) > 0) {
+			fileOut.write(fileByteBuffer, 0, count);
+
+			// Stop after writing the last buffer containing file contents
+			if (count < FILE_BUFFER_SIZE) {
+				break;
+			}
+		}
+		System.out.println("File downloaded");
+
+		// Add the new file to the file list
+		fileList.put(newFile.getName(), newFile);
+		updateClientFileList();
+
+		// Close the file writer
+		fileOut.close();
+	}
+
+	/**
 	 * Uploads the specified file to the host
 	 *
 	 *
@@ -189,18 +229,19 @@ public class Controller {
 	private void sendFile(String fileName) throws IOException {
 
 		// Check if file exists on client
-		if (fileList.get(fileName) == null) {
+		if (!fileList.get(fileName).exists()) {
 			throw new IOException("File not found");
 		}
 
 		InputStream fileIn = new FileInputStream(fileList.get(fileName));
 
-		// Buffered file output in 4k buffers
+		// Buffered file output
 		byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
 		int count;
 		while ((count = fileIn.read(fileByteBuffer)) > 0) {
 			requestOutput.write(fileByteBuffer, 0, count);
 		}
+		System.out.println("File uploaded");
 
 		// Receive updated file list from host
 		receiveFileList();

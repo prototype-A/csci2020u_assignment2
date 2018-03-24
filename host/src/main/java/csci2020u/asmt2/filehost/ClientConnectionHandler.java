@@ -23,8 +23,6 @@ public class ClientConnectionHandler implements Runnable {
 	private Socket clientSocket;
 	private ConcurrentHashMap<String, File> fileList;
 	private BufferedReader requestInput;
-	private BufferedInputStream fileInput;
-	private BufferedOutputStream fileOutput;
 	private ObjectOutputStream responseSender;
 	private final int FILE_BUFFER_SIZE = 4096;
 
@@ -33,8 +31,6 @@ public class ClientConnectionHandler implements Runnable {
 		clientSocket = socket;
 		this.fileList = fileList;
 		requestInput = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-		fileInput = new BufferedInputStream(socket.getInputStream());
-		fileOutput = new BufferedOutputStream(socket.getOutputStream());
 		responseSender = new ObjectOutputStream(socket.getOutputStream());
 	}
 
@@ -83,9 +79,9 @@ public class ClientConnectionHandler implements Runnable {
 			switch (command) {
 				case "DIR":			sendFileList(true);
 									break;
-				case "UPLOAD":		getFile(tokenizer.nextToken(), true);
-									break;
 				case "DOWNLOAD":	sendFile(tokenizer.nextToken(), true);
+									break;
+				case "UPLOAD":		receiveFile(tokenizer.nextToken(), true);
 									break;
 				default:			sendResponse("ERROR", "'" + command + "' method is invalid or unsupported.");
 			}
@@ -104,6 +100,7 @@ public class ClientConnectionHandler implements Runnable {
 	private void sendFileList(boolean sendOk) {
 		
 		try {
+
 			if (sendOk) {
 				// Send request confirmation
 				sendAcknowledgement();
@@ -117,6 +114,45 @@ public class ClientConnectionHandler implements Runnable {
 	}
 
 	/**
+	 * Sends the requested file over the socket to the client
+	 *
+	 * @param fileName The name of the requested file to send
+	 * @param sendOk True - Send acknowledgement of command
+	 * False - Do not send acknowledgement
+	 */
+	private void sendFile(String fileName, boolean sendOk) {
+
+		try {
+
+			// Check if file exists on server
+			if (!fileList.get(fileName).exists()) {
+				throw new IOException("File not found");
+			}
+
+			// Open file and buffered stream to output file bytes
+			InputStream fileIn = new FileInputStream(fileList.get(fileName));
+			BufferedOutputStream fileOutput = new BufferedOutputStream(clientSocket.getOutputStream());
+
+			if (sendOk) {
+				// Send request confirmation
+				sendAcknowledgement();
+			}
+
+			// Buffered file output
+			byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
+			int count;
+			while ((count = fileIn.read(fileByteBuffer)) > 0) {
+				fileOutput.write(fileByteBuffer, 0, count);
+			}
+
+			fileOutput.flush();
+		} catch (Exception e) {
+			System.out.println("ERROR: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+
+	/**
 	 * Download the specified file from client to host
 	 * and share it
 	 *
@@ -124,11 +160,11 @@ public class ClientConnectionHandler implements Runnable {
 	 * @param sendOk True - Send acknowledgement of command
 	 * False - Do not send acknowledgement
  	 */
-	private void getFile(String fileName, boolean sendOk) {
+	private void receiveFile(String fileName, boolean sendOk) {
 
 		try {
 
-			// Check if host can create a and write to new file
+			// Check if the host can create a and write to new file
 			File newFile = new File("./share/" + fileName);
 
 			if (sendOk) {
@@ -136,7 +172,10 @@ public class ClientConnectionHandler implements Runnable {
 				sendAcknowledgement();
 			}
 
-			// Obtain and write data to file
+			// Open a buffered stream to receive file byte buffers
+			BufferedInputStream fileInput = new BufferedInputStream(clientSocket.getInputStream());
+
+			// Download and write data to file
 			FileOutputStream fileOut = new FileOutputStream(newFile);
 			byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
 			int count;
@@ -148,7 +187,6 @@ public class ClientConnectionHandler implements Runnable {
 					break;
 				}
 			}
-			System.out.println("Downloaded file to: " + newFile.getCanonicalPath());
 
 			// Add the new file to the file list if it doesn't exist already
 			fileList.putIfAbsent(newFile.getName(), newFile);
@@ -161,44 +199,6 @@ public class ClientConnectionHandler implements Runnable {
 		} catch (IOException e) {
 			System.err.println("ERROR: Could not write to file");
 		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-
-	/**
-	 * Sends the requested file over the socket to the client
-	 *
-	 * @param fileName The name of the requested file to send
-	 * @param sendOk True - Send acknowledgement of command
-	 * False - Do not send acknowledgement
-	 */
-	private void sendFile(String fileName, boolean sendOk) {
-
-		try {
-
-			// Check if file exists on server
-			if (fileList.get(fileName) == null) {
-				throw new IOException("File not found");
-			}
-
-			InputStream fileIn = new FileInputStream(fileList.get(fileName));
-
-			if (sendOk) {
-				// Send request confirmation
-				sendAcknowledgement();
-			}
-
-			// Buffered file output in 4k buffers
-			byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
-			int count;
-			while ((count = fileIn.read(fileByteBuffer)) > 0) {
-				fileOutput.write(fileByteBuffer, 0, count);
-			}
-
-			fileOutput.flush();
-		} catch (Exception e) {
-			System.out.println("ERROR: " + e.getMessage());
 			e.printStackTrace();
 		}
 	}

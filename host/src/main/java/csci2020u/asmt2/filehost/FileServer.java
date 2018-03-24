@@ -55,13 +55,9 @@ public class FileServer {
 	 * Recursively iterates through all files and subdirectories
 	 * and adds all files to a list
 	 *
-	 *
 	 * @param fileDir The directory to begin in
-	 *
-	 * @exception IOException if an I/O error occurs while reading a file
-	 * /sub-directory
 	 */
-	private void buildFileList(File fileDir) throws IOException {
+	private void buildFileList(File fileDir) {
 
 		// Check directory permissions and whether it exists or not
 		if (fileDir.exists() && fileDir.canRead()) {
