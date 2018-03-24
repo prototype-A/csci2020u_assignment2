@@ -41,6 +41,7 @@ public class ClientConnectionHandler implements Runnable {
 	@Override
 	public void run() {
 
+		// Client connected
 		System.out.println("Date: " + (new Date()));
 		System.out.println("Established connection with a client from " + clientSocket.getInetAddress().getCanonicalHostName() + ".\n");
 
@@ -51,6 +52,7 @@ public class ClientConnectionHandler implements Runnable {
 			// Close the connection to the client after handling the request
 			clientSocket.close();
 		} catch (IOException e) {
+			System.err.println("ERROR: Could not close connection to client");
 			e.printStackTrace();
 		} finally {
 			try {
@@ -64,12 +66,10 @@ public class ClientConnectionHandler implements Runnable {
 	}
 
 	/**
-	 * Handle the requests received by the server that is sent from a client
-	 *
+	 * Handle the requests received by the server 
+	 * that is sent from a client
 	 *
 	 * @param request The entire command line to parse
-	 *
-	 * @throws IOException if the command is missing arguments
 	 */
 	private void parseRequest(String request) {
 
@@ -91,13 +91,12 @@ public class ClientConnectionHandler implements Runnable {
 			}
 
 		} catch (NoSuchElementException e) {
-			System.out.println("No file name provided");
+			System.err.println("ERROR: No file name provided");
 		}
 	}
 
 	/**
 	 * Sends the current list of files to the client
-	 *
 	 *
 	 * @param sendOk True - Send acknowledgement of command
 	 * False - Do not send acknowledgement
@@ -121,7 +120,6 @@ public class ClientConnectionHandler implements Runnable {
 	 * Download the specified file from client to host
 	 * and share it
 	 *
-	 *
 	 * @param fileName The name of the file to download
 	 * @param sendOk True - Send acknowledgement of command
 	 * False - Do not send acknowledgement
@@ -144,13 +142,15 @@ public class ClientConnectionHandler implements Runnable {
 			int count;
 			while ((count = fileInput.read(fileByteBuffer)) > 0) {
 				fileOut.write(fileByteBuffer, 0, count);
+
+				// Stop after writing the last buffer containing file contents
 				if (count < FILE_BUFFER_SIZE) {
 					break;
 				}
 			}
 			System.out.println("Downloaded file to: " + newFile.getCanonicalPath());
 
-			// Add the new file to the file list
+			// Add the new file to the file list if it doesn't exist already
 			fileList.putIfAbsent(newFile.getName(), newFile);
 
 			// Send updated file list to client
@@ -159,7 +159,7 @@ public class ClientConnectionHandler implements Runnable {
 			// Close the file writer
 			fileOut.close();
 		} catch (IOException e) {
-			sendResponse("ERROR", "Could not write to file");
+			System.err.println("ERROR: Could not write to file");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -168,7 +168,6 @@ public class ClientConnectionHandler implements Runnable {
 
 	/**
 	 * Sends the requested file over the socket to the client
-	 *
 	 *
 	 * @param fileName The name of the requested file to send
 	 * @param sendOk True - Send acknowledgement of command
@@ -191,7 +190,7 @@ public class ClientConnectionHandler implements Runnable {
 			}
 
 			// Buffered file output in 4k buffers
-			byte[] fileByteBuffer = new byte[4096];
+			byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
 			int count;
 			while ((count = fileIn.read(fileByteBuffer)) > 0) {
 				fileOutput.write(fileByteBuffer, 0, count);
@@ -199,8 +198,8 @@ public class ClientConnectionHandler implements Runnable {
 
 			fileOutput.flush();
 		} catch (Exception e) {
-			// Something went wrong: send error
-			sendResponse("ERROR", e.getMessage());
+			System.out.println("ERROR: " + e.getMessage());
+			e.printStackTrace();
 		}
 	}
 
@@ -214,11 +213,8 @@ public class ClientConnectionHandler implements Runnable {
 	/**
 	 * Sends a response message from the server to the client
 	 *
-	 *
 	 * @param message The message to send
 	 * @param description The description of the message
-	 *
-	 * @throws IOException if an error occurs while sending the response
 	 */
 	private void sendResponse(String message, String description) {
 		try {

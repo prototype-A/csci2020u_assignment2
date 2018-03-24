@@ -47,6 +47,7 @@ public class Controller {
 	private ObjectInputStream responseInput;
 	private ObjectOutputStream fileOutput;
 	private DataOutputStream requestOutput;
+	private final int FILE_BUFFER_SIZE = 4096;
 
 
 	public void initialize() {
@@ -83,11 +84,8 @@ public class Controller {
 	 *
 	 *
 	 * @param fileDir The directory to begin in
-	 *
-	 * @throws IOException if an I/O error occurs while reading a file
-	 * /sub-directory
 	 */
-	private void buildFileList(File fileDir) throws IOException {
+	private void buildFileList(File fileDir) {
 
 		// Check directory permissions and whether it exists or not
 		if (fileDir.exists() && fileDir.canRead()) {
@@ -118,19 +116,23 @@ public class Controller {
 			responseInput = new ObjectInputStream(socket.getInputStream());
 			requestOutput = new DataOutputStream(socket.getOutputStream());
 		} catch (ConnectException e) {
-			System.out.println("Connection refused");
+			System.err.println("Connection refused");
 		} catch (UnknownHostException e) {
-			System.out.println("Unknown connection");
+			System.err.println("Unknown connection");
+			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
 	/**
-	 * Send a file-related request to the file server
+	 * Send a file-related request to the file host
+	 *
 	 *
 	 * @param command The command to send
-	 * @throws IOException if an I/O error occurs while reading the server response
+	 *
+	 * @throws IOException if an I/O error occurs while sending the request
+	 * or reading the response from the host
 	 */
 	private void sendRequest(String command, String fileName) throws IOException {
 
@@ -146,7 +148,7 @@ public class Controller {
 
 		System.out.println("Sent Request: " + request);
 
-		// Get the response from the file server after sending the request
+		// Get the response from the file host after sending the request
 		getResponse();
 
 		switch (command) {
@@ -169,10 +171,10 @@ public class Controller {
 			serverFileListTable.setItems(serverFileList);
 			serverFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
 		} catch (ClassNotFoundException e) {
-			System.out.println("Class not found");
+			System.err.println("Class not found");
 			e.printStackTrace();
 		} catch (IOException e) {
-			System.out.println("Failed to receive file list from server");
+			System.err.println("Failed to receive file list from host");
 		}
 	}
 
@@ -184,34 +186,29 @@ public class Controller {
 	 *
 	 * @throws IOException if an I/O error occurs while reading the response
 	 */
-	private void sendFile(String fileName) {
+	private void sendFile(String fileName) throws IOException {
 
-		try {
-
-			// Check if file exists on client
-			if (fileList.get(fileName) == null) {
-				throw new IOException("File not found");
-			}
-
-			InputStream fileIn = new FileInputStream(fileList.get(fileName));
-
-			// Buffered file output in 4k buffers
-			byte[] fileByteBuffer = new byte[4096];
-			int count;
-			while ((count = fileIn.read(fileByteBuffer)) > 0) {
-				requestOutput.write(fileByteBuffer, 0, count);
-			}
-
-			// Receive updated file list from host
-			receiveFileList();
-
-			// Clean-up
-			requestOutput.flush();
-			requestOutput.close();
-			fileIn.close();
-		} catch (IOException e) {
-			
+		// Check if file exists on client
+		if (fileList.get(fileName) == null) {
+			throw new IOException("File not found");
 		}
+
+		InputStream fileIn = new FileInputStream(fileList.get(fileName));
+
+		// Buffered file output in 4k buffers
+		byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
+		int count;
+		while ((count = fileIn.read(fileByteBuffer)) > 0) {
+			requestOutput.write(fileByteBuffer, 0, count);
+		}
+
+		// Receive updated file list from host
+		receiveFileList();
+
+		// Clean-up
+		requestOutput.flush();
+		requestOutput.close();
+		fileIn.close();
 	}
 
 	/**
@@ -228,7 +225,7 @@ public class Controller {
 				System.out.println("Downloading " + selectedFile + " from host");
 				sendRequest("DOWNLOAD", selectedFile);
 			} catch (IOException e) {
-				System.out.println("Failed to download file from host");
+				System.err.println("Failed to download file from host");
 			}
 		} else {
 			System.out.println("No file selected to download");
@@ -249,7 +246,7 @@ public class Controller {
 				System.out.println("Sending " + selectedFile + " to host");
 				sendRequest("UPLOAD", selectedFile);
 			} catch (IOException e) {
-				System.out.println("Failed to upload file to host");
+				System.err.println("Failed to upload file to host");
 			}
 		} else {
 			System.out.println("No file selected to upload");
@@ -257,7 +254,7 @@ public class Controller {
 	}
 
 	/**
-	 * Read and print the response sent by the server
+	 * Read and print the response sent by the file host
 	 *
 	 * @throws IOException if an I/O error occurs while reading the response
 	 */
@@ -266,9 +263,10 @@ public class Controller {
 		try {
 			ServerResponse response = (ServerResponse)responseInput.readObject();
 
-			System.out.println("Response from server: " + response.toString() + "\n");
+			System.out.println("Response from host: " + response.toString() + "\n");
 		} catch (ClassNotFoundException e) {
-			System.out.println("Class not found");
+			System.err.println("Class not found");
+			e.printStackTrace();
 		}
 	}
 
