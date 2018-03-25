@@ -46,15 +46,15 @@ Terminating the file host after you're done:
 `pgrep java`  
 `kill <process>`  
 where process is the number that was not listed before.  
-
-
-
+  
+  
+  
 Server arguments:  
 `java -jar host.jar <port> <shareDir>`  
-port - The port to listen for connections on (default 8080)
-shareDir - Directory to share the contents of and download files to (default "./share/")
+port - The port to listen for connections on (default 8080)  
+shareDir - Directory to share the contents of and download files to (default "./share/")  
 
 Client arguments:  
 `java -jar client.jar <host> <port>`  
-host - The address of the host to connect to (default "localhost")
+host - The address of the host to connect to (default "localhost")  
 port - The port to connect to (default 8080)
