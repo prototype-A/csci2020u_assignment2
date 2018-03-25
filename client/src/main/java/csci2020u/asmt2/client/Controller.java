@@ -11,6 +11,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TextArea;
 import javafx.stage.DirectoryChooser;
 
 import java.io.BufferedInputStream;
@@ -38,6 +39,7 @@ public class Controller {
 	@FXML private TableColumn<String, String> serverFileNameCol;
 	@FXML private Button downloadButton;
 	@FXML private Button uploadButton;
+	@FXML private TextArea fileInfoArea;
 	
 	private int port = 8080;
 	private File clientShareDir;
@@ -208,7 +210,7 @@ public class Controller {
 				break;
 			}
 		}
-		System.out.println("File downloaded");
+		System.out.println("File downloaded\n");
 
 		// Add the new file to the file list
 		fileList.put(newFile.getName(), newFile);
@@ -241,7 +243,7 @@ public class Controller {
 		while ((count = fileIn.read(fileByteBuffer)) > 0) {
 			requestOutput.write(fileByteBuffer, 0, count);
 		}
-		System.out.println("File uploaded");
+		System.out.println("File uploaded\n");
 
 		// Receive updated file list from host
 		receiveFileList();
@@ -250,6 +252,23 @@ public class Controller {
 		requestOutput.flush();
 		requestOutput.close();
 		fileIn.close();
+	}
+
+	/**
+	 * Read and print the response sent by the file host
+	 *
+	 * @throws IOException if an I/O error occurs while reading the response
+	 */
+	private void getResponse() throws IOException {
+
+		try {
+			ServerResponse response = (ServerResponse)responseInput.readObject();
+
+			System.out.println("Response from host: (\"" + response.toString() + "\")\n");
+		} catch (ClassNotFoundException e) {
+			System.err.println("Class not found");
+			e.printStackTrace();
+		}
 	}
 
 	/**
@@ -291,23 +310,6 @@ public class Controller {
 			}
 		} else {
 			System.out.println("No file selected to upload");
-		}
-	}
-
-	/**
-	 * Read and print the response sent by the file host
-	 *
-	 * @throws IOException if an I/O error occurs while reading the response
-	 */
-	private void getResponse() throws IOException {
-
-		try {
-			ServerResponse response = (ServerResponse)responseInput.readObject();
-
-			System.out.println("Response from host: " + response.toString() + "\n");
-		} catch (ClassNotFoundException e) {
-			System.err.println("Class not found");
-			e.printStackTrace();
 		}
 	}
 

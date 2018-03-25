@@ -40,7 +40,7 @@ public class FileServer {
 		// Build list of files to share
 		System.out.println("Loading file list...");
 		buildFileList(shareDir);
-		System.out.println("Loaded file list!\n");
+		System.out.println("File list loaded!\n");
 
 		// Start listening for client connections
 		System.out.println("Listening for requests...\n");
@@ -102,8 +102,7 @@ public class FileServer {
 			FileServer fileServer = new FileServer(port, hostShareDir);
 			fileServer.hostFiles();
 		} catch (IOException e) {
-			System.err.println("An I/O Error occurred: " + e.getMessage());
-			e.printStackTrace();
+			ClientConnectionHandler.logError(e.getMessage() + " occurred while hosting files", e);
 		}
 
 	}

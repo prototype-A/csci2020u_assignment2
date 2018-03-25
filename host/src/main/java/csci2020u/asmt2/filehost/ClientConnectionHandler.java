@@ -38,8 +38,7 @@ public class ClientConnectionHandler implements Runnable {
 	public void run() {
 
 		// Client connected
-		System.out.println("Date: " + (new Date()));
-		System.out.println("Established connection with a client from " + clientSocket.getInetAddress().getCanonicalHostName() + ".\n");
+		logMessage("Established connection with a client");
 
 		try {
 			// Handle the request sent by the client
@@ -48,15 +47,13 @@ public class ClientConnectionHandler implements Runnable {
 			// Close the connection to the client after handling the request
 			clientSocket.close();
 		} catch (IOException e) {
-			System.err.println("ERROR: Could not close connection to client");
-			e.printStackTrace();
+			logError("Could not close connection to client");
 		} finally {
 			try {
 				// Maybe it will close now?
 				clientSocket.close();
 			} catch (IOException e) {
-				System.err.println("aaaaaaaaaaaaaaa");
-				e.printStackTrace();
+				logError("Connection not closed", e);
 			}
 		}
 	}
@@ -73,8 +70,7 @@ public class ClientConnectionHandler implements Runnable {
 			StringTokenizer tokenizer = new StringTokenizer(request);
 			String command = tokenizer.nextToken().toUpperCase();
 
-			System.out.println("Date: " + (new Date()));
-			System.out.println("Recieved " + command + " command.\n");
+			logMessage("Recieved " + command + " command from client");
 
 			switch (command) {
 				case "DIR":			sendFileList(true);
@@ -87,7 +83,7 @@ public class ClientConnectionHandler implements Runnable {
 			}
 
 		} catch (NoSuchElementException e) {
-			System.err.println("ERROR: No file name provided");
+			logError("No file name provided");
 		}
 	}
 
@@ -109,7 +105,7 @@ public class ClientConnectionHandler implements Runnable {
 			// Send the file list
 			responseSender.writeObject(fileList.keySet());
 		} catch (Exception e) {
-			e.printStackTrace();
+			logError(e.getMessage(), e);
 		}
 	}
 
@@ -146,9 +142,12 @@ public class ClientConnectionHandler implements Runnable {
 			}
 
 			fileOutput.flush();
+
+			logMessage("Received " + fileName + " from client");
+		} catch (IOException e) {
+			logError(e.getMessage());
 		} catch (Exception e) {
-			System.out.println("ERROR: " + e.getMessage());
-			e.printStackTrace();
+			logError(e.getMessage(), e);
 		}
 	}
 
@@ -197,9 +196,9 @@ public class ClientConnectionHandler implements Runnable {
 			// Close the file writer
 			fileOut.close();
 		} catch (IOException e) {
-			System.err.println("ERROR: Could not write to file");
+			logError("Could not write to file");
 		} catch (Exception e) {
-			e.printStackTrace();
+			logError(e.getMessage(), e);
 		}
 	}
 
@@ -221,10 +220,45 @@ public class ClientConnectionHandler implements Runnable {
 			responseSender.writeObject(new ServerResponse(message, description));
 			responseSender.flush();
 		} catch (IOException e) {
-			System.out.println("Failed to send response to client");
+			logError("Failed to send response to client");
 		} catch (Exception e) {
-			e.printStackTrace();
+			logError(e.getMessage(), e);
 		}
+	}
+
+	/**
+	 * Output the log message to the command line with the timestamp 
+	 * and client's IP address
+	 *
+	 * @param message The message to log
+	 */
+	private void logMessage(String message) {
+		message = "[" + new Date() + "]\n" + message + " at ";
+		System.out.println(message + clientSocket.getInetAddress().toString() + "\n");
+	}
+
+	/**
+	 * Output the error message to the command line with the timestamp 
+	 * and a red highlighted error indicator
+	 *
+	 * @param message The error message to log
+	 */
+	public static void logError(String message) {
+		message = "[" + new Date() + "]\n\033[1;31mERROR:\033[1;0m " + message + "\n";
+		System.err.println(message);
+	}
+
+	/**
+	 * Output the error message to the command line with the timestamp 
+	 * and a red highlighted error indicator, and print the function
+	 * call stack
+	 *
+	 * @param message The error message to log
+	 * @param exception The exception thrown
+	 */
+	public static void logError(String message, Exception exception) {
+		logError(message);
+		exception.printStackTrace();
 	}
 
 }
