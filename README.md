@@ -23,13 +23,26 @@ Compile the client:
 `gradle buildclient`
 
 Navigate to the host's executable jar directory:  
-`cd host/build/libs`
+`cd host`
 
-Run the host program:  
-`java -jar host.jar`
+Keep track of which Java processes you currently have running:
+`pgrep java`
+
+Either:
+Launch the file host in the current terminal:
+`cd build/libs && java -jar host.jar`
+Then open another terminal in the current directory and run the rest of the commands in that window.
+or
+Run the file host as a background process (logs will be logged to "./log.txt"):  
+`./launch_host`
 
 Navigate to the client's executable jar directory:  
-`cd ../../../client/build/libs`
+`cd ../client/build/libs`
 
-Run the client program:  
+Run the client program:
 `java -jar client.jar`
+
+Terminating the file host after you're done:
+`pgrep java`
+`kill <process>`
+where process is the number that was not listed before.
