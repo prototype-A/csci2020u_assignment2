@@ -98,7 +98,7 @@ public class FileServer {
 
 		try {
 			// Launch file-sharing server and start sharing files
-			System.out.println("Launching File Host...\n");
+			System.out.println("Launching File Host on port " + port + "...\n");
 			FileServer fileServer = new FileServer(port, hostShareDir);
 			fileServer.hostFiles();
 		} catch (IOException e) {

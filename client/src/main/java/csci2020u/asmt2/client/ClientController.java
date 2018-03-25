@@ -8,11 +8,13 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Button;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TextArea;
 import javafx.stage.DirectoryChooser;
+import javafx.scene.Parent;
 
 import java.io.BufferedInputStream;
 import java.io.DataOutputStream;
@@ -28,10 +30,11 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 
 
-public class Controller {
+public class ClientController {
 
  	@FXML private TableView<String> clientFileListTable;
 	@FXML private TableView<String> serverFileListTable;
@@ -41,7 +44,8 @@ public class Controller {
 	@FXML private Button uploadButton;
 	@FXML private TextArea fileInfoArea;
 	
-	private int port = 8080;
+	private String host;
+	private Integer port;
 	private File clientShareDir;
 	private HashMap<String, File> fileList;
 	private ObservableList<String> serverFileList;
@@ -59,22 +63,47 @@ public class Controller {
 		dirChooser.setTitle("Select directory to share its contents");
 		clientShareDir = dirChooser.showDialog(null);
 
+		// Build the list of files to share
+		fileList = new HashMap<>();
+		buildFileList(clientShareDir);
+		updateClientFileList();
+		clientFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
+	}
+
+	/**
+	 * Allows the main client application to set up the connection settings
+	 *
+	 * @param cmdArgs The list of arguments passed to the command line upon launching the client
+	 */
+	public void setConnSettings(List<String> cmdArgs) {
+
 		try {
+			if (cmdArgs.size() > 0) {
 
-			// Build the list of files to share
-			fileList = new HashMap<>();
-			buildFileList(clientShareDir);
-			updateClientFileList();
-			clientFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
+				// Set host
+				host = cmdArgs.get(0);
 
+				// Set port
+				if (cmdArgs.size() > 1) {
+					port = Integer.parseInt(cmdArgs.get(1));
+				}
+			}
+
+			System.out.println("Conn: " + host + ":" + port);
+		} catch (Exception e) {
+			System.err.println("Invalid settings passed: Using default values\n");
+			host = "localhost";
+			port = 8080;
+		} finally {
 			// Connect to file-sharing host
 			connectToHost();
 
-			// Request list of shared files from host
-			sendRequest("DIR", null);
-
-		} catch (IOException e) {
-			e.printStackTrace();
+			try {
+				// Request list of shared files from host
+				sendRequest("DIR", null);
+			} catch (Exception e) {
+				System.err.println("Failed to retrieve file list from host");
+			}
 		}
 	}
 
@@ -103,6 +132,9 @@ public class Controller {
 		}
 	}
 
+	/**
+	 * Refresh the local file list after finished downloading a file
+	 */
 	private void updateClientFileList() {
 		// Display local shared files
 		clientFileListTable.setItems(FXCollections.observableArrayList(fileList.keySet()));
@@ -115,7 +147,7 @@ public class Controller {
 
 		try {
 			// Connect to file-sharing host
-			socket = new Socket(InetAddress.getLocalHost(), port);
+			socket = new Socket(host, port);
 			// Set up I/O to the file host
 			responseInput = new ObjectInputStream(socket.getInputStream());
 			requestOutput = new DataOutputStream(socket.getOutputStream());

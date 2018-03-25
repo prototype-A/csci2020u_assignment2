@@ -8,9 +8,6 @@ import javafx.stage.Stage;
 
 
 public class FileShareClient extends Application {
-	
-	private final static int WIN_WIDTH = 800;
-	private final static int WIN_HEIGHT = 600;
 
 
 	@Override
@@ -20,9 +17,13 @@ public class FileShareClient extends Application {
 		FXMLLoader loader = new FXMLLoader(getClass().getResource("UI.fxml"));
         Parent root = loader.load();
 
+		// Send command-line arguments to controller
+		ClientController clientController = (ClientController)loader.getController();
+		clientController.setConnSettings(getParameters().getRaw());
+
 		// Application window
 		primaryStage.setTitle("FileShare Client");
-		primaryStage.setScene(new Scene(root, WIN_WIDTH, WIN_HEIGHT));
+		primaryStage.setScene(new Scene(root, 800, 600));
 		primaryStage.show();
 
 	}
