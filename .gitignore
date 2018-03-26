@@ -1,5 +1,5 @@
 *.class
 *.jar
-*.csv
+*.txt
 **/build/
 **/.gradle/

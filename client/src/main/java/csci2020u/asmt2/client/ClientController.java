@@ -66,7 +66,9 @@ public class ClientController {
 		// Build the list of files to share
 		fileList = new HashMap<>();
 		buildFileList(clientShareDir);
-		updateClientFileList();
+
+		// Display client's shared file list
+		clientFileListTable.setItems(FXCollections.observableArrayList(fileList.keySet()));
 		clientFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
 	}
 
@@ -245,8 +247,8 @@ public class ClientController {
 		System.out.println("File downloaded\n");
 
 		// Add the new file to the file list
-		fileList.put(newFile.getName(), newFile);
-		updateClientFileList();
+		fileList.put(fileName, newFile);
+		clientFileListTable.getItems().add(fileName);
 
 		// Close the file writer
 		fileOut.close();
