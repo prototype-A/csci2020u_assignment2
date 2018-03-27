@@ -62,6 +62,10 @@ public class ClientController {
 		dirChooser.setInitialDirectory(new File("."));
 		dirChooser.setTitle("Select directory to share its contents");
 		clientShareDir = dirChooser.showDialog(null);
+		// Cancel was clicked
+		if (clientShareDir == null) {
+			System.exit(0);
+		}
 
 		// Build the list of files to share
 		fileList = new HashMap<>();
@@ -89,6 +93,9 @@ public class ClientController {
 				if (cmdArgs.size() > 1) {
 					port = Integer.parseInt(cmdArgs.get(1));
 				}
+			} else {
+				// No args passed through command line: use default settings
+				throw new Exception("No arguments passed");
 			}
 
 			System.out.println("Conn: " + host + ":" + port);
@@ -309,7 +316,9 @@ public class ClientController {
 	 * Called when the "Download" button is clicked
 	 */
 	public void downloadFile(ActionEvent event) {
+
 		String selectedFile = serverFileListTable.getSelectionModel().getSelectedItem();
+
 		if (selectedFile != null) {
 			try {
 				// Connect to host
@@ -330,7 +339,9 @@ public class ClientController {
 	 * Called when the "Upload" button is clicked
 	 */
 	public void uploadFile(ActionEvent event) {
+
 		String selectedFile = clientFileListTable.getSelectionModel().getSelectedItem();
+
 		if (selectedFile != null) {
 			try {
 				// Connect to host
