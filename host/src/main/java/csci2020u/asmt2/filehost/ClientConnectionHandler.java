@@ -127,25 +127,23 @@ public class ClientConnectionHandler implements Runnable {
 				throw new IOException("File not found");
 			}
 
-			// Open file and buffered stream to output file bytes
-			InputStream fileIn = new FileInputStream(fileList.get(fileName));
-			BufferedOutputStream fileOutput = new BufferedOutputStream(clientSocket.getOutputStream());
-
 			if (sendOk) {
 				// Send request confirmation
 				sendAcknowledgement();
 			}
 
-			// Buffered file output
+			// Open file and upload its bytes
+			FileInputStream fileIn = new FileInputStream(fileList.get(fileName));
+			BufferedOutputStream fileOutput = new BufferedOutputStream(clientSocket.getOutputStream());
 			byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
 			int count;
 			while ((count = fileIn.read(fileByteBuffer)) > 0) {
 				fileOutput.write(fileByteBuffer, 0, count);
 			}
 
-			fileOutput.flush();
-			fileIn.close();
+			// Close streams
 			fileOutput.close();
+			fileIn.close();
 		} catch (IOException e) {
 			logError(e.getMessage());
 		} catch (Exception e) {
@@ -177,11 +175,11 @@ public class ClientConnectionHandler implements Runnable {
 			BufferedInputStream fileInput = new BufferedInputStream(clientSocket.getInputStream());
 
 			// Download and write data to file
-			FileOutputStream fileOut = new FileOutputStream(newFile);
+			FileOutputStream fileWriter = new FileOutputStream(newFile);
 			byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
 			int count;
 			while ((count = fileInput.read(fileByteBuffer)) > 0) {
-				fileOut.write(fileByteBuffer, 0, count);
+				fileWriter.write(fileByteBuffer, 0, count);
 
 				// Stop after writing the last buffer containing file contents
 				if (count < FILE_BUFFER_SIZE) {
@@ -198,8 +196,9 @@ public class ClientConnectionHandler implements Runnable {
 			// Send updated file list to client
 			sendFileList(false);
 
-			// Close the file writer
-			fileOut.close();
+			// Close streams
+			fileWriter.close();
+			fileInput.close();
 		} catch (IOException e) {
 			logError("Could not write to file");
 		} catch (Exception e) {

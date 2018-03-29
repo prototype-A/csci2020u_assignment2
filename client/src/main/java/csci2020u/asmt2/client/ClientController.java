@@ -237,6 +237,10 @@ public class ClientController {
 			case "UPLOAD":		sendFile(fileName);
 								break;
 		}
+
+		// Close socket streams
+		requestOutput.close();
+		responseInput.close();
 	}
 
 	/**
@@ -274,11 +278,11 @@ public class ClientController {
 		BufferedInputStream fileInput = new BufferedInputStream(socket.getInputStream());
 
 		// Download and write data to file
-		FileOutputStream fileOut = new FileOutputStream(newFile);
+		FileOutputStream fileWriter = new FileOutputStream(newFile);
 		byte[] fileByteBuffer = new byte[FILE_BUFFER_SIZE];
 		int count;
 		while ((count = fileInput.read(fileByteBuffer)) > 0) {
-			fileOut.write(fileByteBuffer, 0, count);
+			fileWriter.write(fileByteBuffer, 0, count);
 
 			// Stop after writing the last buffer containing file contents
 			if (count < FILE_BUFFER_SIZE) {
@@ -291,8 +295,9 @@ public class ClientController {
 		fileList.put(fileName, newFile);
 		clientFileListTable.getItems().add(fileName);
 
-		// Close the file writer
-		fileOut.close();
+		// Close streams
+		fileWriter.close();
+		fileInput.close();
 	}
 
 	/**
@@ -323,9 +328,7 @@ public class ClientController {
 		// Receive updated file list from host
 		receiveFileList();
 
-		// Clean-up
-		requestOutput.flush();
-		requestOutput.close();
+		// Close streams
 		fileIn.close();
 	}
 
