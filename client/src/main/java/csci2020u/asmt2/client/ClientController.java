@@ -80,6 +80,9 @@ public class ClientController {
 		clientFileListTable.setItems(FXCollections.observableArrayList(fileList.keySet()));
 		clientFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
 
+		// Display file host file list
+		serverFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
+
 		// Add listener to detect when a file shared by the client is selected
 		final ObservableList selectedClientCells = clientFileListTable.getSelectionModel().getSelectedCells();
 		selectedClientCells.addListener(new ListChangeListener() {
@@ -91,6 +94,8 @@ public class ClientController {
 					Object fileName = tablePosition.getTableColumn().getCellData(tablePosition.getRow());
 					File file = fileList.get(fileName);
 					fileInfoArea.setText("\n" + fileName + " (" + FileInfo.getReadableFileSize(file.length()) + " " + Files.probeContentType(file.toPath()) + " file)\n\n" + file.getCanonicalPath() + "\n\n" + "Last Modified: " + new Date(file.lastModified()));
+				} catch (IndexOutOfBoundsException e) {
+				} catch (NullPointerException e) {
 				} catch (Exception e) {
 					// An error occurred while getting file info
 					e.printStackTrace();
@@ -109,6 +114,8 @@ public class ClientController {
 					Object fileName = tablePosition.getTableColumn().getCellData(tablePosition.getRow());
 					FileInfo fileInfo = serverFileList.get(fileName);
 					fileInfoArea.setText("\n" + fileName + " (" + fileInfo.getReadableFileSize() + " file)\n\n" + "Last Modified: " + fileInfo.getLastModified());
+				} catch (IndexOutOfBoundsException e) {
+				} catch (NullPointerException e) {
 				} catch (Exception e) {
 					// An error occurred while getting file info
 					e.printStackTrace();
@@ -224,7 +231,7 @@ public class ClientController {
 		requestOutput.writeBytes(request + "\r\n");
 		requestOutput.flush();
 
-		System.out.println("Sent Request: " + request);
+		//System.out.println("Sent Request: " + request);
 
 		// Get the response from the file host after sending the request
 		getResponse();
@@ -252,7 +259,6 @@ public class ClientController {
 		try {
 			serverFileList = (ConcurrentHashMap<String, FileInfo>)responseInput.readObject();
 			serverFileListTable.setItems(FXCollections.observableArrayList(serverFileList.keySet()));
-			serverFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
 		} catch (ClassNotFoundException e) {
 			System.err.println("Class not found");
 			e.printStackTrace();
@@ -291,9 +297,11 @@ public class ClientController {
 		}
 		System.out.println("File downloaded\n");
 
-		// Add the new file to the file list
-		fileList.put(fileName, newFile);
-		clientFileListTable.getItems().add(fileName);
+		// Add the new file to the local file list
+		if (!fileList.containsKey(fileName)) {
+			fileList.put(fileName, newFile);
+			clientFileListTable.getItems().add(fileName);
+		}
 
 		// Close streams
 		fileWriter.close();
@@ -312,7 +320,9 @@ public class ClientController {
 
 		// Check if file exists on client
 		if (!fileList.get(fileName).exists()) {
-			throw new IOException("File not found");
+			// Remove from list if file does not exist
+			fileList.remove(fileName);
+			throw new IOException("File not found, removing from list");
 		}
 
 		InputStream fileIn = new FileInputStream(fileList.get(fileName));
@@ -365,10 +375,18 @@ public class ClientController {
 				System.out.println("Downloading " + selectedFile + " from host");
 				sendRequest("DOWNLOAD", selectedFile);
 			} catch (IOException e) {
-				System.err.println("Failed to download file from host");
+				System.err.println("Failed to download file from host\n");
+			} finally {
+				try {
+					// Request updated file list from host
+					connectToHost();
+					sendRequest("DIR", null);
+				} catch (IOException e) {
+					System.err.println("Failed to receive updated file list from host\n");
+				}
 			}
 		} else {
-			System.out.println("No file selected to download");
+			System.out.println("No file selected to download\n");
 		}
 	}
 
@@ -388,10 +406,10 @@ public class ClientController {
 				System.out.println("Sending " + selectedFile + " to host");
 				sendRequest("UPLOAD", selectedFile);
 			} catch (IOException e) {
-				System.err.println("Failed to upload file to host");
+				System.err.println("Failed to upload file to host\n");
 			}
 		} else {
-			System.out.println("No file selected to upload");
+			System.out.println("No file selected to upload\n");
 		}
 	}
 

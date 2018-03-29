@@ -69,6 +69,7 @@ public class ClientConnectionHandler implements Runnable {
 	private void parseRequest(String request) {
 
 		try {
+
 			StringTokenizer tokenizer = new StringTokenizer(request);
 			String command = tokenizer.nextToken().toUpperCase();
 
@@ -124,7 +125,7 @@ public class ClientConnectionHandler implements Runnable {
 
 			// Check if file exists on server
 			if (!fileList.get(fileName).exists()) {
-				throw new IOException("File not found");
+				throw new IOException("File not found, removing from list");
 			}
 
 			if (sendOk) {
@@ -146,6 +147,10 @@ public class ClientConnectionHandler implements Runnable {
 			fileIn.close();
 		} catch (IOException e) {
 			logError(e.getMessage());
+
+			// Remove missing file from file list
+			fileList.remove(fileName);
+			fileInfoList.remove(fileName);
 		} catch (Exception e) {
 			logError(e.getMessage(), e);
 		}
