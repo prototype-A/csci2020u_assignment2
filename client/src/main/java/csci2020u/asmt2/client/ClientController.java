@@ -5,6 +5,7 @@ import csci2020u.asmt2.filehost.FileInfo;
 
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -12,6 +13,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Button;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TablePosition;
 import javafx.scene.control.TextArea;
 import javafx.stage.DirectoryChooser;
 import javafx.scene.Parent;
@@ -25,10 +27,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.nio.file.Files;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -48,7 +53,7 @@ public class ClientController {
 	private Integer port;
 	private File clientShareDir;
 	private HashMap<String, File> fileList;
-	private ObservableList<String> serverFileList;
+	private ConcurrentHashMap<String, FileInfo> serverFileList;
 	private Socket socket;
 	private ObjectInputStream responseInput;
 	private DataOutputStream requestOutput;
@@ -74,6 +79,42 @@ public class ClientController {
 		// Display client's shared file list
 		clientFileListTable.setItems(FXCollections.observableArrayList(fileList.keySet()));
 		clientFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
+
+		// Add listener to detect when a file shared by the client is selected
+		final ObservableList selectedClientCells = clientFileListTable.getSelectionModel().getSelectedCells();
+		selectedClientCells.addListener(new ListChangeListener() {
+			@Override
+			public void onChanged(Change c) {
+				try {
+					// Display file info
+					TablePosition tablePosition = (TablePosition) selectedClientCells.get(0);
+					Object fileName = tablePosition.getTableColumn().getCellData(tablePosition.getRow());
+					File file = fileList.get(fileName);
+					fileInfoArea.setText("\n" + fileName + " (" + FileInfo.getReadableFileSize(file.length()) + " " + Files.probeContentType(file.toPath()) + " file)\n\n" + file.getCanonicalPath() + "\n\n" + "Last Modified: " + new Date(file.lastModified()));
+				} catch (Exception e) {
+					// An error occurred while getting file info
+					e.printStackTrace();
+				}
+			}
+		});
+
+		// Add listener to detect when a file shared by the host is selected
+		final ObservableList selectedServerCells = serverFileListTable.getSelectionModel().getSelectedCells();
+		selectedServerCells.addListener(new ListChangeListener() {
+			@Override
+			public void onChanged(Change c) {
+				try {
+					// Display file info
+					TablePosition tablePosition = (TablePosition) selectedServerCells.get(0);
+					Object fileName = tablePosition.getTableColumn().getCellData(tablePosition.getRow());
+					FileInfo fileInfo = serverFileList.get(fileName);
+					fileInfoArea.setText("\n" + fileName + " (" + fileInfo.getReadableFileSize() + " file)\n\n" + "Last Modified: " + fileInfo.getLastModified());
+				} catch (Exception e) {
+					// An error occurred while getting file info
+					e.printStackTrace();
+				}
+			}
+		});
 	}
 
 	/**
@@ -142,14 +183,6 @@ public class ClientController {
 	}
 
 	/**
-	 * Refresh the local file list after finished downloading a file
-	 */
-	private void updateClientFileList() {
-		// Display local shared files
-		clientFileListTable.setItems(FXCollections.observableArrayList(fileList.keySet()));
-	}
-
-	/**
 	 * Establish connection and data stream I/O to the file-sharing host 
 	 */
 	private void connectToHost() {
@@ -211,9 +244,10 @@ public class ClientController {
 	 * display it on the client
 	 */
 	private void receiveFileList() {
+
 		try {
-			serverFileList = FXCollections.observableArrayList((Set<String>)responseInput.readObject());
-			serverFileListTable.setItems(serverFileList);
+			serverFileList = (ConcurrentHashMap<String, FileInfo>)responseInput.readObject();
+			serverFileListTable.setItems(FXCollections.observableArrayList(serverFileList.keySet()));
 			serverFileNameCol.setCellValueFactory(fileName -> new SimpleStringProperty(fileName.getValue()));
 		} catch (ClassNotFoundException e) {
 			System.err.println("Class not found");

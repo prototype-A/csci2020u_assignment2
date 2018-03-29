@@ -15,12 +15,14 @@ public class FileServer {
 	private ServerSocket serverSocket;
 	private File shareDir;
 	private ConcurrentHashMap<String, File> fileList;
+	private ConcurrentHashMap<String, FileInfo> fileInfoList;
 
 
 	public FileServer(int port, String path) throws IOException {
 
 		serverSocket = new ServerSocket(port);
 		fileList = new ConcurrentHashMap<>();
+		fileInfoList = new ConcurrentHashMap<>();
 
 		try {
 			// Check that the specified directory path exists/can be accessed
@@ -46,7 +48,7 @@ public class FileServer {
 		System.out.println("Listening for requests...\n");
 		while (true) {
 			Socket clientSocket = serverSocket.accept();
-			Thread connThread = new Thread(new ClientConnectionHandler(clientSocket, fileList));
+			Thread connThread = new Thread(new ClientConnectionHandler(clientSocket, fileList, fileInfoList));
 			connThread.start();
 		}
 	}
@@ -69,8 +71,10 @@ public class FileServer {
 					// Sub-directory: Recurse over it
 					buildFileList(file);
 				} else {
-					// File: Add to list
-					fileList.put(file.getName(), file);
+					// File: Add to lists
+					String fileName = file.getName();
+					fileList.put(fileName, file);
+					fileInfoList.put(fileName, new FileInfo(file));
 				}
 			}
 		}

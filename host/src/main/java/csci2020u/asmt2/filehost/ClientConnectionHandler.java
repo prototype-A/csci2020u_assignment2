@@ -22,14 +22,16 @@ public class ClientConnectionHandler implements Runnable {
 
 	private Socket clientSocket;
 	private ConcurrentHashMap<String, File> fileList;
+	private ConcurrentHashMap<String, FileInfo> fileInfoList;
 	private BufferedReader requestInput;
 	private ObjectOutputStream responseSender;
 	private final int FILE_BUFFER_SIZE = 4096;
 
 
-	public ClientConnectionHandler(Socket socket, ConcurrentHashMap<String, File> fileList) throws IOException {
+	public ClientConnectionHandler(Socket socket, ConcurrentHashMap<String, File> fileList, ConcurrentHashMap<String, FileInfo> fileInfoList) throws IOException {
 		clientSocket = socket;
 		this.fileList = fileList;
+		this.fileInfoList = fileInfoList;
 		requestInput = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 		responseSender = new ObjectOutputStream(socket.getOutputStream());
 	}
@@ -103,7 +105,7 @@ public class ClientConnectionHandler implements Runnable {
 			}
 
 			// Send the file list
-			responseSender.writeObject(fileList.keySet());
+			responseSender.writeObject(fileInfoList);
 		} catch (Exception e) {
 			logError(e.getMessage(), e);
 		}
@@ -142,8 +144,8 @@ public class ClientConnectionHandler implements Runnable {
 			}
 
 			fileOutput.flush();
-
-			logMessage("Received " + fileName + " from client");
+			fileIn.close();
+			fileOutput.close();
 		} catch (IOException e) {
 			logError(e.getMessage());
 		} catch (Exception e) {
@@ -187,8 +189,11 @@ public class ClientConnectionHandler implements Runnable {
 				}
 			}
 
+			logMessage("Received " + fileName + " from client");
+
 			// Add the new file to the file list if it doesn't exist already
 			fileList.putIfAbsent(newFile.getName(), newFile);
+			fileInfoList.putIfAbsent(newFile.getName(), new FileInfo(newFile));
 
 			// Send updated file list to client
 			sendFileList(false);
